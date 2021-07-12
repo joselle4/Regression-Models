@@ -1,0 +1,91 @@
+---
+title: "Regression Models Class Project: Automatic vs Manual Transmission"
+author: "Joselle Abagat"
+date: "7/8/2018"
+output: html_document
+---
+
+## Topic:
+
+You work for Motor Trend, a magazine about the automobile industry. Looking at a data set of a collection of cars, they are interested in exploring the relationship between a set of variables and miles per gallon (MPG) (outcome). They are particularly interested in the following two questions:
+
+- “Is an automatic or manual transmission better for MPG”
+
+- "Quantify the MPG difference between automatic and manual transmissions" 
+
+# **Analysis and Summary**
+
+### Loaded Libraries
+```{r setup, include=FALSE}
+library(data.table)
+
+knitr::opts_chunk$set(echo = TRUE)
+mtcars <- data.table(mtcars)
+```
+
+### Executive Summary
+This project explores the mtcars dataset in order to determine whether automatic or manual transmission is better for MPG.  A quick data summary shows that manual is transmission is better for MPG.  However, this is strictly looking at MPG as a function of transmission and nothing more.  It does not take into account other variables such as cylinders, horsepower, weight, etc.  This project will fit and select different models, perform residual plotting and diagnostics, and perform inference in an attempt to quantify the MPG difference between automatic and manual transmissions. 
+
+### Explore mtcars data set
+The data frame mtcars consists of 32 observations on the following 11 variables: `r names(mtcars)`.  
+```{r}
+str(mtcars)
+```
+We want to explore the relationship between mpg and am (Transmission: 0 = automatic, 1 = manual).  Based on the data summaries in Appendix A, mpg ranges from [`r min(mtcars$mpg[mtcars$am == 0])` to `r max(mtcars$mpg[mtcars$am == 0])`] with an average of `r round(mean(mtcars$mpg[mtcars$am == 0]),2)` for automatic transmission while mpg ranges from [`r min(mtcars$mpg[mtcars$am == 1])` to `r max(mtcars$mpg[mtcars$am == 1])`] with an average of `r round(mean(mtcars$mpg[mtcars$am == 1]),2)` for manual transmission.  This can allow us to conclude that driving a manual transmission car leads to more miles per gallon.  However, this does not take into account the effect of other variables such as the number of cylinders or car weight.
+```{r}
+cor(mtcars$mpg, mtcars[, -1])
+```
+The correlation shows us that while mpg is positively impacted by transmission and number of gears, it is inversely impacted by the number of cylinders, horsepower, weight.
+
+### Model Fitting and Selection
+Analyzing different model fits, a general linear model did not apply since mpg can be represented as arange of values.  Therefore, a binomial linear model could not be applied.  It is also not a rate, therefore, a poisson linear model should not be applied.  The most appropriate is a simple linear model via function lm(). Using step(), we can use a stepwise algorithm to choose the best model by AIC.  
+```{r}
+mdlAll <- lm(mpg ~ ., mtcars)
+mdlBest <- step(mdlAll, trace = 0)
+```
+Looking at the summaries of mdlAll and mdlBest in Appendix B, it can be seen that using all the predictors result in P-values > 0.05, which show that the relationships are not significant.  Using the stepwise algorithm, the best model shows that wt (weight), qsec (1/4 mile time), and am (transmission) are the relevant predictors.  
+
+### Diagnostics
+In order to test whethere the predictors are truly significant, let's compute the analysis of variance on the fitted model, mdlBest.  The Analysis of Variance Table below shows that weight, quarter mile time and transmission are significant in response to mpg (all p-values are << 0.05).
+```{r}
+anova(mdlBest)
+```
+To further optimize this model, let's look at weight and quarter mile time as functions of transmission.
+```{r}
+mdlAM <- lm(mpg ~ factor(am):wt + factor(am):qsec, data = mtcars)
+```
+
+### Conclusion
+As can be seen in Appendix C, the multiple R-squared is 89.5%, which means that the model has 89.5% variability.  
+
+- manual transmission's effect on mpg in relation with weight, has almost twice the inverse impact compared to automatic: manual = `r summary(mdlAM)$coef[3]` | automatic = `r summary(mdlAM)$coef[2]`. Therefore, if weight is a factor with mpg, manual transmission is better.
+
+- manual transmision's effect on mpg in relation to quarter mile time is `r summary(mdlAM)$coef[5]` compared to automatic transmission's `r summary(mdlAM)$coef[4]`.  Therefore, if quarter mile time is a factor with mpg, manual transmission is better.
+
+In conclusion, manual transmission is better for MPG.
+
+# **Appendices:**
+
+### Appendix A: Explore cars
+```{r}
+summary(mtcars[am == 0]) # Transmission = Automatic
+summary(mtcars[am == 1]) # Transmission = Manual
+pairs(mpg ~ ., data = mtcars)
+```
+
+### Appendix B: Model Fitting and Selection
+```{r}
+par(mfrow = c(2,2))
+plot(mdlAll)
+summary(mdlAll)
+plot(mdlBest)
+summary(mdlBest)
+```
+
+### Appendix C: Diagnostics
+```{r}
+summary(mdlAM)
+confint(mdlAM)
+par(mfrow = c(2,2))
+plot(mdlAM)
+```
